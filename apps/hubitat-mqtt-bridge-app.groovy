@@ -38,14 +38,14 @@ preferences {
 		input("recipients", "contact", title: "Send notifications to", multiple: true, required: false)
 	}
 
+	section ("Bridge") {
+		input "mqttbridge", "capability.notification", title: "Notify this Bridge", required: true, multiple: false
+	}
+
 	section ("Input") {
 		CAPABILITY_MAP.each { key, capability ->
 			input key, capability["capability"], title: capability["name"], multiple: true, required: false
 		}
-	}
-
-	section ("Bridge") {
-		input "bridge", "capability.notification", title: "Notify this Bridge", required: true, multiple: false
 	}
 }
 
@@ -144,13 +144,13 @@ preferences {
 		]
 	],
 	"bridge": [
-		name: "bridge",
+		name: "Bridge",
 		capability: "capability.bridge",
 		attributes: [
 		]
 	],
 	"bulb": [
-		name: "bulb",
+		name: "Bulb",
 		capability: "capability.bulb",
 		attributes: [
 			"switch"
@@ -163,13 +163,6 @@ preferences {
 		attributes: [
 			"pushed",
 			"numberOfButtons"
-		]
-	],
-	"holdablebutton": [
-		name: "Holdable Button",
-		capability: "capability.holdableButton",
-		attributes: [
-			"held"
 		]
 	],
 	"doubletapablebutton": [
@@ -350,6 +343,7 @@ preferences {
 		name: "Holdable Button",
 		capability: "capability.holdableButton",
 		attributes: [
+			"held",
 			"button",
 			"numberOfButtons"
 		]
@@ -950,7 +944,7 @@ def initialize() {
 	}
 
 	// Subscribe to events from the bridge
-	subscribe(bridge, "message", bridgeHandler)
+	subscribe(mqttbridge, "message", bridgeHandler)
 
 	// Update the bridge
 	updateSubscription()
@@ -982,7 +976,7 @@ def updateSubscription() {
 
 	log.debug "Updating subscription: ${json}"
 
-	bridge.deviceNotification(json)
+	mqttbridge.deviceNotification(json)
 }
 
 // Receive an event from the bridge
@@ -1053,7 +1047,7 @@ def inputHandler(evt) {
 		])
 
 		log.debug "Forwarding device event to bridge: ${json}"
-		bridge.deviceNotification(json)
+		mqttbridge.deviceNotification(json)
 	}
 }
 
@@ -1131,16 +1125,17 @@ def actionAudioVolume(device, attribute, value) {
 
 def actionColorControl(device, attribute, value) {
 	switch (attribute) {
+		case "color":
 		case "setColor":
 			def values = value.split(',')
-			def colormap = ["hue": values[0] as int, "saturation": values[1] as int]
+			def colormap = ["hue": Math.round(values[0] as float), "saturation": Math.round(values[1] as float)]
 			device.setColor(colormap)
 			break
 		case "setHue":
-			device.setHue(value as int)
+			device.setHue(Math.round(value as float))
 			break
 		case "setSaturation":
-			device.setSaturation(value as int)
+			device.setSaturation(Math.round(value as float))
 			break
 	}
 }
