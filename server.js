@@ -54,7 +54,7 @@ winston.add(winston.transports.File, {
  * @method loadConfiguration
  * @return {Object} Configuration
  */
-function loadConfiguration () {
+function loadConfiguration() {
     if (!fs.existsSync(CONFIG_FILE)) {
         winston.info('No previous configuration found, creating one');
         fs.writeFileSync(CONFIG_FILE, fs.readFileSync(SAMPLE_FILE));
@@ -68,7 +68,7 @@ function loadConfiguration () {
  * @method loadSavedState
  * @return {Object} Configuration
  */
-function loadSavedState () {
+function loadSavedState() {
     var output;
     try {
         output = jsonfile.readFileSync(STATE_FILE);
@@ -88,16 +88,14 @@ function loadSavedState () {
  * Resubscribe on a periodic basis
  * @method saveState
  */
-function saveState () {
+function saveState() {
     winston.info('Saving current state');
     jsonfile.writeFileSync(STATE_FILE, {
         subscriptions: subscriptions,
         callback: callback,
         history: history,
         version: CURRENT_VERSION
-    }, {
-        spaces: 4
-    });
+    }, { spaces: 4 });
 }
 
 /**
@@ -105,7 +103,7 @@ function saveState () {
  * @method migrateState
  * @param  {String}     version Version the state was written in before
  */
-function migrateState (version) {
+function migrateState(version) {
     // Make sure the object exists
     if (!config.mqtt) {
         config.mqtt = {};
@@ -164,7 +162,7 @@ function migrateState (version) {
  * @param  {String}  req.body.value Value of device (e.g. "on")
  * @param  {Result}  res            Result Object
  */
-function handlePushEvent (req, res) {
+function handlePushEvent(req, res) {
     var topic = getTopicFor(req.body.name, req.body.type, TOPIC_READ_STATE),
         value = req.body.value;
 
@@ -190,7 +188,7 @@ function handlePushEvent (req, res) {
  * @param  {String}  req.body.callback Host and port for Hubitat Hub
  * @param  {Result}  res               Result Object
  */
-function handleSubscribeEvent (req, res) {
+function handleSubscribeEvent(req, res) {
     // Subscribe to all events
     subscriptions = [];
     Object.keys(req.body.devices).forEach(function (property) {
@@ -224,7 +222,7 @@ function handleSubscribeEvent (req, res) {
  * @param  {String}    type     Type of topic (command or state)
  * @return {String}             MQTT Topic name
  */
-function getTopicFor (device, property, type) {
+function getTopicFor(device, property, type) {
     var tree = [config.mqtt.preface, device, property],
         suffix;
 
@@ -249,7 +247,7 @@ function getTopicFor (device, property, type) {
  * @param  {String} topic   Topic channel the event came from
  * @param  {String} message Contents of the event
  */
-function parseMQTTMessage (topic, message) {
+function parseMQTTMessage(topic, message) {
     var contents = message.toString();
     winston.info('Incoming message from MQTT: %s = %s', topic, contents);
 
@@ -262,15 +260,12 @@ function parseMQTTMessage (topic, message) {
         topicSwitchState = getTopicFor(device, 'switch', TOPIC_READ_STATE),
         topicLevelCommand = getTopicFor(device, 'level', TOPIC_COMMAND);
 
-    if (history[topicWriteState] === contents) {
-        history[topicReadState] = contents;
-        winston.info('Skipping duplicate message from: %s = %s', topic, contents);
-        return;
-    }
-    if (history[topicReadState] === contents) {
-        history[topicWriteState] = contents;
-        winston.info('Skipping duplicate message from: %s = %s', topic, contents);
-        return;
+    // Deduplicate only if the incoming message topic is the same as the read state topic
+    if (topic === topicReadState) {
+        if (history[topic] === contents) {
+            winston.info('Skipping duplicate message from: %s = %s', topic, contents);
+            return;
+        }
     }
     history[topic] = contents;
 
@@ -281,10 +276,10 @@ function parseMQTTMessage (topic, message) {
         return;
     }
 
-    // If sending switch data and there is already a level value, send level instead
+    // If sending switch data and there is already a nonzero level value, send level instead
     // Hubitat will turn the device on
     if (property === 'switch' && contents === 'on' &&
-        history[topicLevelCommand] !== undefined) {
+        history[topicLevelCommand] > 0) {
         winston.info('Passing level instead of switch on');
         property = 'level';
         contents = history[topicLevelCommand];
@@ -310,7 +305,7 @@ function parseMQTTMessage (topic, message) {
 
 // Main flow
 async.series([
-    function loadFromDisk (next) {
+    function loadFromDisk(next) {
         var state;
 
         winston.info('Starting Hubitat MQTT Bridge - v%s', CURRENT_VERSION);
@@ -328,7 +323,7 @@ async.series([
 
         process.nextTick(next);
     },
-    function connectToMQTT (next) {
+    function connectToMQTT(next) {
         winston.info('Connecting to MQTT at %s', config.mqtt.host);
 
         client = mqtt.connect(config.mqtt.host, config.mqtt);
@@ -339,10 +334,10 @@ async.series([
             }
             next();
             // @TODO Not call this twice if we get disconnected
-            next = function () {};
+            next = function () { };
         });
     },
-    function configureCron (next) {
+    function configureCron(next) {
         winston.info('Configuring autosave');
 
         // Save current state every 15 minutes
@@ -350,7 +345,7 @@ async.series([
 
         process.nextTick(next);
     },
-    function setupApp (next) {
+    function setupApp(next) {
         winston.info('Configuring API');
 
         // Accept JSON
